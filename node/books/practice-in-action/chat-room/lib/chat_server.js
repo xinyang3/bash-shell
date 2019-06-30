@@ -59,6 +59,7 @@ function joinRoom (socket, room) {
     usersInRoomSummary += '.';
     socket.emit('message', {text: usersInRoomSummary});
 }
+// 修改名称
 function handleNameChangeAttemps (socket, nickNames,namesUsed) {
     socket.on('nameAttempt', function (name) {
         if(name.indexOf('Guest') == 0) {
@@ -69,8 +70,44 @@ function handleNameChangeAttemps (socket, nickNames,namesUsed) {
         } else {
             if (namesUsed.indexOf(name) == -1) {
                 var previousName = nickNames[socket.id];
-                var priviousNameIndex = namesUsed,indexOf(previousName);
+                var previousNameIndex = namesUsed.indexOf(previousName);
+                namesUsed.push(name);
+                nickNames[socket.id] = name;
+                delete namesUsed[previousNameIndex];
+                socket.emit('nameResult', {
+                    success: true,
+                    name: name
+                });
+                socket.broadcast.to(currentRoom[socketio.id]).emit('message', {
+                    text: previousName + ' is now known as ' + name + '.'
+                });
+            } else {
+                socket.emit('nameResult', {
+                    success: false,
+                    message: 'that name is already in use.'
+                })
             }
         }
+    })
+};
+
+function handleMessageBroadcasting (socket) {
+    socket.on('message', function(message) {
+        socket.broadcast.to(message.room).emit('message', {
+            text: nickNames[socket.id] + ': ' + message.text
+        })
+    })
+}
+function handleRoomJoining (socket) {
+    socket.on('join', function(room) {
+        socket.leave(currentRoom[socket.id]);
+        joinRoom(socket, room.newRoom);
+    })
+}
+function handleCliendDisconnection(scoket) {
+    socket.on('disconnect', function() {
+        var nameIndex = namesUsed.indexOf(nickNames[socketio.id]);
+        delete namesUsed[nameIndex];
+        delete nickNames[socketio.id];
     })
 }
